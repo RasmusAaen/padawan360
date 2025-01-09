@@ -26,7 +26,8 @@ Microsoft Xbox 360 Controller
 Xbox 360 USB Wireless Reciver
 Sabertooth Motor Controller
 Syren Motor Controller
-Sparkfun MP3 Trigger
+REMOVED - Sparkfun MP3 Trigger
+DY-XXXX mp3 module
 
 This sketch supports I2C and calls events on many sound effect actions to control lights and sounds.
 It is NOT set up for Dan's method of using the serial packet to transfer data up to the dome
@@ -95,7 +96,7 @@ const int SABERTOOTHBAUDRATE = 9600;
 const int DOMEBAUDRATE = 9600;
 
 // Default sound volume at startup
-// 0 = full volume, 255 off
+// 0 = off, 30 = max
 byte vol = 20;
 
 
@@ -109,7 +110,8 @@ int turnDirection = 20;
 #define EXTINGUISHERPIN 3
 
 #include <Sabertooth.h>
-#include <MP3Trigger.h>
+//#include <MP3Trigger.h>
+#include <DYPlayerArduino.h>
 #include <Wire.h>
 #include <XBOXRECV.h>
 
@@ -165,7 +167,8 @@ boolean isHPOn = false;
 
 
 
-MP3Trigger mp3Trigger;
+//MP3Trigger mp3Trigger;
+DY::Player player(&Serial3);
 USB Usb;
 XBOXRECV Xbox(&Usb);
 
@@ -201,8 +204,10 @@ void setup() {
   pinMode(EXTINGUISHERPIN, OUTPUT);
   digitalWrite(EXTINGUISHERPIN, HIGH);
 
-  mp3Trigger.setup();
-  mp3Trigger.setVolume(vol);
+  //mp3Trigger.setup();
+  //mp3Trigger.setVolume(vol);
+  player.begin();
+  player.setVolume(vol); // Set the playback volume between 0 and 30
 
   if(isLeftStickDrive) {
     throttleAxis = LeftHatY;
@@ -250,7 +255,7 @@ void loop() {
   // After the controller connects, Blink all the LEDs so we know drives are disengaged at start
   if (!firstLoadOnConnect) {
     firstLoadOnConnect = true;
-    mp3Trigger.play(21);
+    player.playSpecified(21);
     Xbox.setLedMode(ROTATING, 0);
   }
   
@@ -265,10 +270,10 @@ void loop() {
     if (isDriveEnabled) {
       isDriveEnabled = false;
       Xbox.setLedMode(ROTATING, 0);
-      mp3Trigger.play(53);
+      player.playSpecified(53);
     } else {
       isDriveEnabled = true;
-      mp3Trigger.play(52);
+      player.playSpecified(52);
       // //When the drive is enabled, set our LED accordingly to indicate speed
       if (drivespeed == DRIVESPEED1) {
         Xbox.setLedOn(LED1, 0);
@@ -285,10 +290,10 @@ void loop() {
     if (isInAutomationMode) {
       isInAutomationMode = false;
       automateAction = 0;
-      mp3Trigger.play(53);
+      player.playSpecified(53);
     } else {
       isInAutomationMode = true;
-      mp3Trigger.play(52);
+      player.playSpecified(52);
     }
   }
 
@@ -301,7 +306,7 @@ void loop() {
       automateAction = random(1, 5);
 
       if (automateAction > 1) {
-        mp3Trigger.play(random(32, 52));
+        player.playSpecified(random(32, 52));
       }
       if (automateAction < 4) {
 #if defined(SYRENSIMPLE)
@@ -335,18 +340,18 @@ void loop() {
   if (Xbox.getButtonClick(UP, 0)) {
     // volume up
     if (Xbox.getButtonPress(R1, 0)) {
-      if (vol > 0) {
-        vol--;
-        mp3Trigger.setVolume(vol);
+      if (vol < 30) {
+        vol++;
+        player.setVolume(vol);
       }
     }
   }
   if (Xbox.getButtonClick(DOWN, 0)) {
     //volume down
     if (Xbox.getButtonPress(R1, 0)) {
-      if (vol < 255) {
-        vol++;
-        mp3Trigger.setVolume(vol);
+      if (vol > 0) {
+        vol--;
+        player.setVolume(vol);
       }
     }
   }
@@ -384,19 +389,19 @@ void loop() {
   // Y Button and Y combo buttons
   if (Xbox.getButtonClick(Y, 0)) {
     if (Xbox.getButtonPress(L1, 0)) {
-      mp3Trigger.play(8);
+      player.playSpecified(8);
       //logic lights, random
       triggerI2C(10, 0);
     } else if (Xbox.getButtonPress(L2, 0)) {
-      mp3Trigger.play(2);
+      player.playSpecified(2);
       //logic lights, random
       triggerI2C(10, 0);
     } else if (Xbox.getButtonPress(R1, 0)) {
-      mp3Trigger.play(9);
+      player.playSpecified(9);
       //logic lights, random
       triggerI2C(10, 0);
     } else {
-      mp3Trigger.play(random(13, 17));
+      player.playSpecified(random(13, 17));
       //logic lights, random
       triggerI2C(10, 0);
     }
@@ -405,7 +410,7 @@ void loop() {
   // A Button and A combo Buttons
   if (Xbox.getButtonClick(A, 0)) {
     if (Xbox.getButtonPress(L1, 0)) {
-      mp3Trigger.play(6);
+      player.playSpecified(6);
       //logic lights
       triggerI2C(10, 6);
       // HPEvent 11 - SystemFailure - I2C
@@ -413,7 +418,7 @@ void loop() {
       triggerI2C(26, 11);
       triggerI2C(27, 11);
     } else if (Xbox.getButtonPress(L2, 0)) {
-      mp3Trigger.play(1);
+      player.playSpecified(1);
       //logic lights, alarm
       triggerI2C(10, 1);
       //  HPEvent 3 - alarm - I2C
@@ -421,11 +426,11 @@ void loop() {
       triggerI2C(26, 3);
       triggerI2C(27, 3);
     } else if (Xbox.getButtonPress(R1, 0)) {
-      mp3Trigger.play(11);
+      player.playSpecified(11);
       //logic lights, alarm2Display
       triggerI2C(10, 11);
     } else {
-      mp3Trigger.play(random(17, 25));
+      player.playSpecified(random(17, 25));
       //logic lights, random
       triggerI2C(10, 0);
     }
@@ -434,15 +439,15 @@ void loop() {
   // B Button and B combo Buttons
   if (Xbox.getButtonClick(B, 0)) {
     if (Xbox.getButtonPress(L1, 0)) {
-      mp3Trigger.play(7);
+      player.playSpecified(7);
       //logic lights, random
       triggerI2C(10, 0);
     } else if (Xbox.getButtonPress(L2, 0)) {
-      mp3Trigger.play(3);
+      player.playSpecified(3);
       //logic lights, random
       triggerI2C(10, 0);
     } else if (Xbox.getButtonPress(R1, 0)) {
-      mp3Trigger.play(10);
+      player.playSpecified(10);
       //logic lights bargrap
       triggerI2C(10, 10);
       // HPEvent 1 - Disco - I2C
@@ -450,7 +455,7 @@ void loop() {
       triggerI2C(26, 10);
       triggerI2C(27, 10);
     } else {
-      mp3Trigger.play(random(32, 52));
+      player.playSpecified(random(32, 52));
       //logic lights, random
       triggerI2C(10, 0);
     }
@@ -460,21 +465,21 @@ void loop() {
   if (Xbox.getButtonClick(X, 0)) {
     // leia message L1+X
     if (Xbox.getButtonPress(L1, 0)) {
-      mp3Trigger.play(5);
+      player.playSpecified(5);
       //logic lights, leia message
       triggerI2C(10, 5);
       // Front HPEvent 1 - HoloMessage - I2C -leia message
       triggerI2C(25, 9);
     } else if (Xbox.getButtonPress(L2, 0)) {
-      mp3Trigger.play(4);
+      player.playSpecified(4);
       //logic lights
       triggerI2C(10, 4);
     } else if (Xbox.getButtonPress(R1, 0)) {
-      mp3Trigger.play(12);
+      player.playSpecified(12);
       //logic lights, random
       triggerI2C(10, 0);
     } else {
-      mp3Trigger.play(random(25, 32));
+      player.playSpecified(random(25, 32));
       //logic lights, random
       triggerI2C(10, 0);
     }
@@ -508,20 +513,20 @@ void loop() {
       //change to medium speed and play sound 3-tone
       drivespeed = DRIVESPEED2;
       Xbox.setLedOn(LED2, 0);
-      mp3Trigger.play(53);
+      player.playSpecified(53);
       triggerI2C(10, 22);
     } else if (drivespeed == DRIVESPEED2 && (DRIVESPEED3 != 0)) {
       //change to high speed and play sound scream
       drivespeed = DRIVESPEED3;
       Xbox.setLedOn(LED3, 0);
-      mp3Trigger.play(1);
+      player.playSpecified(1);
       triggerI2C(10, 23);
     } else {
       //we must be in high speed
       //change to low speed and play sound 2-tone
       drivespeed = DRIVESPEED1;
       Xbox.setLedOn(LED1, 0);
-      mp3Trigger.play(52);
+      player.playSpecified(52);
       triggerI2C(10, 21);
     }
   }
